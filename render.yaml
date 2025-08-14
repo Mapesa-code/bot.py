@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: nba-telegram-webapp
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT app:app"
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.18
+      - key: NBA_API_KEY
+        value: f2b0dbffbed147ad9c2a2ea050b7274c
+      - key: YOUTUBE_API_KEY  
+        value: AIzaSyAbTk3dh42inDAQZ7-OYsWXiMRfLcbCKmM
