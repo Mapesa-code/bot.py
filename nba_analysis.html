@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}NBA Game Analysis{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>📊 NBA Game Analysis</h1>
+    <p>Recent games and predictions</p>
+</div>
+
+<div class="nav-buttons">
+    <a href="/" class="nav-btn">🏠 Home</a>
+    <button class="nav-btn" onclick="loadRecentGames()">🔄 Refresh Data</button>
+</div>
+
+<div class="card">
+    <h2>Game Prediction Tool</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+        <input type="text" id="homeTeam" placeholder="Home Team" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+        <input type="text" id="awayTeam" placeholder="Away Team" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+        <input type="number" id="pointSpread" placeholder="Point Spread" step="0.5" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+        <input type="number" id="homeMoneyline" placeholder="Home Moneyline" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+        <input type="number" id="awayMoneyline" placeholder="Away Moneyline" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+    </div>
+    <button class="btn" onclick="predictGame()" style="width: 100%;">🎯 Predict Winner</button>
+    <div id="prediction-result" style="margin-top: 20px;"></div>
+</div>
+
+<div class="card">
+    <h2>Recent NBA Games</h2>
+    <div id="recent-games">
+        <div class="loading">
+            <div class="spinner"></div>
+            Loading recent games...
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function loadRecentGames() {
+    showLoading('recent-games');
+    
+    try {
+        const data = await fetchAPI('/api/nba-games');
+        
+        if (data.success) {
+            let gamesHTML = `<div style="margin-bottom: 15px;"><strong>Found ${data.total} recent games</strong></div>`;
+            
+            data.games.forEach((game, index) => {
+                const winnerStyle = game.home_score > game.away_score ? 'font-weight: bold; color: #32cd32;' : '';
+                const loserStyle = game.home_score < game.away_score ? 'color: #666;' : '';
+                
+                gamesHTML += `
+                    <div style="border: 1px solid #eee; border-radius: 8px; padding: 15px; margin-bottom: 10px; background: #fafafa;">
+                        <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 10px;">
+                            <strong>${game.date}</strong>
+                            <span style="background: ${game.status === 'Final' ? '#32cd32' : '#ffa500'}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
+                                ${game.status}
+                            </span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 15px; align-items: center;">
+                            <div style="text-align: right; ${game.away_score > game.home_score ? winnerStyle : loserStyle}">
+                                ${game.away_team}
+                            </div>
+                            <div style="text-align: center; font-size: 1.2rem; font-weight: bold;">
+                                ${game.away_score} - ${game.home_score}
+                            </div>
+                            <div style="${game.home_score > game.away_score ? winnerStyle : loserStyle}">
+                                ${game.home_team}
+                            </div>
+                        </div>
+                        ${game.point_spread !== 'N/A' ? `<div style="text-align: center; margin-top: 8px; color: #666; font-size: 0.9rem;">Spread: ${game.point_spread}</div>` : ''}
+                    </div>
+                `;
+            });
+            
+            document.getElementById('recent-games').innerHTML = gamesHTML;
+        } else {
+            showError('recent-games', data.error || 'Failed to load games');
+        }
+    } catch (error) {
+        showError('recent-games', 'Network error loading games');
+    }
+}
+
+async function predictGame() {
+    const homeTeam = document.getElementById('homeTeam').value;
+    const awayTeam = document.getElementById('awayTeam').value;
+    const pointSpread = document.getElementById('pointSpread').value;
+    const homeMoneyline = document.getElementById('homeMoneyline').value;
+    const awayMoneyline = document.getElementById('awayMoneyline').value;
+    
+    if (!homeTeam || !awayTeam) {
+        showError('prediction-result', 'Please enter both team names');
+        return;
+    }
+    
+    showLoading('prediction-result');
+    
+    try {
+        const response = await fetch('/api/predict-game', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                home_team: homeTeam,
+                away_team: awayTeam,
+                point_spread: pointSpread || 0,
+                home_moneyline: homeMoneyline || 0,
+                away_moneyline: awayMoneyline || 0
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const prediction = data.prediction;
+            const confidenceColor = prediction.confidence > 0.7 ? '#32cd32' : prediction.confidence > 0.6 ? '#ffa500' : '#ff6347';
+            
+            document.getElementById('prediction-result').innerHTML = `
+                <div style="background: #f0f8ff; padding: 20px; border-radius: 8px; border-left: 4px solid #1e90ff;">
+                    <h3 style="margin-bottom: 15px; color: #1e90ff;">🎯 Prediction Results</h3>
+                    <div style="font-size: 1.2rem; margin-bottom: 10px;">
+                        <strong>Predicted Winner:</strong> 
+                        <span style="color: ${confidenceColor}; font-weight: bold;">${prediction.predicted_winner}</span>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Confidence:</strong> 
+                        <span style="color: ${confidenceColor}; font-weight: bold;">${(prediction.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>Analysis:</strong> ${prediction.analysis}
+                    </div>
+                    <div style="font-size: 0.9rem; color: #666;">
+                        <em>Prediction based on betting odds and point spread analysis</em>
+                    </div>
+                </div>
+            `;
+        } else {
+            showError('prediction-result', data.error || 'Prediction failed');
+        }
+    } catch (error) {
+        showError('prediction-result', 'Network error during prediction');
+    }
+}
+
+// Load recent games when page loads
+document.addEventListener('DOMContentLoaded', loadRecentGames);
+</script>
+{% endblock %}

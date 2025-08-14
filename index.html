@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}NBA Analytics Hub{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>🏀 NBA Analytics Hub</h1>
+    <p>Your comprehensive NBA data analysis platform</p>
+</div>
+
+<div class="nav-buttons">
+    <a href="/nba-analysis" class="nav-btn">
+        📊 NBA Game Analysis
+    </a>
+    <a href="/sentiment-analysis" class="nav-btn">
+        😊 Lakers Sentiment
+    </a>
+    <a href="/video-highlights" class="nav-btn">
+        🎥 Video Highlights
+    </a>
+</div>
+
+<div class="card">
+    <h2>Welcome to NBA Analytics</h2>
+    <p>This web app provides comprehensive NBA data analysis including:</p>
+    <ul style="margin: 15px 0; padding-left: 20px;">
+        <li><strong>Game Analysis:</strong> Recent NBA games, predictions, and statistics</li>
+        <li><strong>Sentiment Analysis:</strong> Real-time social media sentiment for the Lakers</li>
+        <li><strong>Video Highlights:</strong> Latest NBA highlights from YouTube</li>
+    </ul>
+    <p>Choose a feature above to get started!</p>
+</div>
+
+<div class="card">
+    <h3>Quick Stats</h3>
+    <div id="quick-stats">
+        <div class="loading">
+            <div class="spinner"></div>
+            Loading quick stats...
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function loadQuickStats() {
+    try {
+        // Load quick stats from multiple endpoints
+        const [gamesResponse, sentimentResponse] = await Promise.allSettled([
+            fetchAPI('/api/nba-games'),
+            fetchAPI('/api/lakers-sentiment')
+        ]);
+        
+        let statsHTML = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">';
+        
+        // Games stats
+        if (gamesResponse.status === 'fulfilled' && gamesResponse.value.success) {
+            const gamesData = gamesResponse.value;
+            statsHTML += `
+                <div style="text-align: center; padding: 15px; background: #f0f8ff; border-radius: 8px;">
+                    <div style="font-size: 2rem; font-weight: bold; color: #1e90ff;">${gamesData.total}</div>
+                    <div style="font-size: 0.9rem; color: #666;">Recent Games</div>
+                </div>
+            `;
+        }
+        
+        // Sentiment stats
+        if (sentimentResponse.status === 'fulfilled' && sentimentResponse.value.success) {
+            const sentimentData = sentimentResponse.value;
+            const sentimentColor = sentimentData.analysis.overall_sentiment === 'positive' ? '#32cd32' : 
+                                   sentimentData.analysis.overall_sentiment === 'negative' ? '#ff6347' : '#ffa500';
+            statsHTML += `
+                <div style="text-align: center; padding: 15px; background: #f0fff0; border-radius: 8px;">
+                    <div style="font-size: 2rem; font-weight: bold; color: ${sentimentColor};">${sentimentData.analysis.overall_sentiment.toUpperCase()}</div>
+                    <div style="font-size: 0.9rem; color: #666;">Lakers Sentiment</div>
+                </div>
+            `;
+        }
+        
+        statsHTML += '</div>';
+        document.getElementById('quick-stats').innerHTML = statsHTML;
+        
+    } catch (error) {
+        showError('quick-stats', 'Failed to load quick stats');
+    }
+}
+
+// Load quick stats when page loads
+document.addEventListener('DOMContentLoaded', loadQuickStats);
+</script>
+{% endblock %}
